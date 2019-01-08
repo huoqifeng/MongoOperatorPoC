@@ -1,3 +1,5 @@
+This is just a k8s operator sample which uses busybox image, no real implementation for mongodb or any other database...
+
 ## Steps to create this project:
 - Clone and build Operator-SDK  
     https://github.com/operator-framework/operator-sdk  
@@ -24,3 +26,11 @@
     https://github.com/operator-framework/operator-sdk/blob/master/doc/user/client.md	
 - (todo) make operator robust (Operator Lifecycle Manager)  
     template: https://github.com/operator-framework/getting-started/blob/master/memcachedoperator.0.0.1.csv.yaml
+
+
+## Other mongo k8s operators:
+
+- https://github.com/Percona-Lab/percona-server-mongodb-operator (Apache)
+- https://github.com/mongodb/mongodb-enterprise-kubernetes (Official, Commercial)
+- https://github.com/kbst/mongodb (replicaSets only, python, 35 stars)
+- https://github.com/Ultimaker/k8s-mongo-operator (GPL, python, 9 stars)
