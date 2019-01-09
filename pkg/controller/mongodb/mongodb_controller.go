@@ -99,31 +99,31 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Check if the deployment already exists, if not create a new one
-	found := &appsv1.Deployment{}
+	found := &appsv1.StatefulSet{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		// Define a new deployment
-		dep := r.deploymentForMongoDB(instance)
-		reqLogger.Info("Creating a new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		// Define a new StatefulSet
+		dep := r.statefulsetForMongoDB(instance)
+		reqLogger.Info("Creating a new StatefulSet.", "StatefulSet.Namespace", dep.Namespace, "StatefulSet.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
-			reqLogger.Error(err, "Failed to create new Deployment.", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+			reqLogger.Error(err, "Failed to create new StatefulSet.", "StatefulSet.Namespace", dep.Namespace, "StatfulSet.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-		// Deployment created successfully - return and requeue
+		// StatefulSet created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "Failed to get Deployment.")
+		reqLogger.Error(err, "Failed to get StatefulSet.")
 		return reconcile.Result{}, err
 	}
 
-	// Ensure the deployment size is the same as the spec
+	// Ensure the StatefulSet size is the same as the spec
 	size := instance.Spec.Size
 	if *found.Spec.Replicas != size {
 		found.Spec.Replicas = &size
 		err = r.client.Update(context.TODO(), found)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Deployment.", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+			reqLogger.Error(err, "Failed to update StatefulSet.", "StatefulSet.Namespace", found.Namespace, "StatefulSet.Name", found.Name)
 			return reconcile.Result{}, err
 		}
 		// Spec updated - return and requeue
@@ -131,7 +131,7 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Update the MongoDB status with the pod names
-	// List the pods for this mongodb's deployment
+	// List the pods for this mongodb's StatefulSet
 	podList := &corev1.PodList{}
 	labelSelector := labels.SelectorFromSet(labelsForMongoDB(instance.Name))
 	listOps := &client.ListOptions{
@@ -158,7 +158,46 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
+// statefulsetForMomngoDB returns a mongodb StatefulSet object
+func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB) *appsv1.StatefulSet {
+	ls := labelsForMongoDB(m.Name)
+	replicas := m.Spec.Size
+
+	stateset := &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      m.Name,
+			Namespace: m.Namespace,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Image:   "busybox",
+						Name:    "busybox",
+						Command: []string{"sleep", "3600"},
+					}},
+				},
+			},
+		},
+	}
+	// Set MongoDB instance as the owner and controller
+	controllerutil.SetControllerReference(m, stateset, r.scheme)
+	return stateset
+}
+
 // deploymentForMomngoDB returns a mongodb Deployment object
+// not used for now as we use StatefulSet instead
 func (r *ReconcileMongoDB) deploymentForMongoDB(m *dbaasv1alpha1.MongoDB) *appsv1.Deployment {
 	ls := labelsForMongoDB(m.Name)
 	replicas := m.Spec.Size
