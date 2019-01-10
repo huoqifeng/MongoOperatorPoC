@@ -19,7 +19,7 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 	2. run inside k8s as deployment (skip)  
 	3. run locally outside kubernetes cluster  
     `export OPERATOR_NAME=MongoOperatorPoC`
-	 `operator-sdk up local --namespace=default`  
+	`operator-sdk up local --namespace=default`  
 - create a cr  
     `kubectl apply -f deploy/crds/dbaas_v1alpha1_mongodb_cr.yaml`
 - (todo) add more operations in controller.  
