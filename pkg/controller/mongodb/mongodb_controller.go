@@ -1,18 +1,20 @@
 package mongodb
 
 import (
-	dbaasv1alpha1 "github.com/huoqifeng/MongoOperatorPoC/pkg/apis/dbaas/v1alpha1"
 	"context"
 	"reflect"
+
+	dbaasv1alpha1 "github.com/huoqifeng/MongoOperatorPoC/pkg/apis/dbaas/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -79,6 +81,7 @@ type ReconcileMongoDB struct {
 	scheme *runtime.Scheme
 }
 
+// Reconcile is the main logic when events come
 func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling MongoDB.")
@@ -103,8 +106,18 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 	found := &appsv1.StatefulSet{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
+		// Define headless Service first
+		serviceName := instance.Name + "-rs0"
+		svc := r.newService(instance, serviceName)
+		reqLogger.Info("Creating a new Service.", "Service.Namespace", svc.Namespace, "Service.Name", svc.Name)
+		err = r.client.Create(context.TODO(), svc)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new Service.", "Service.Namespace", svc.Namespace, "Service.Name", svc.Name)
+			return reconcile.Result{}, err
+		}
+
 		// Define a new StatefulSet
-		dep := r.statefulsetForMongoDB(instance)
+		dep := r.statefulsetForMongoDB(instance, serviceName)
 		reqLogger.Info("Creating a new StatefulSet.", "StatefulSet.Namespace", dep.Namespace, "StatefulSet.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
@@ -160,11 +173,11 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 }
 
 // statefulsetForMomngoDB returns a mongodb StatefulSet object
-func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB) *appsv1.StatefulSet {
+func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB, serviceName string) *appsv1.StatefulSet {
 	ls := labelsForMongoDB(m.Name)
 	replicas := m.Spec.Size
 
-    // only hostPath works for minikube so far.
+	// only hostPath works for minikube so far.
 	//const pvname string = "example-local-claim"
 	//const storageclass string = "local-storage"
 	const pvname string = "pv0001"
@@ -178,7 +191,7 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB) *apps
 			corev1.ResourceStorage: resource.MustParse("0.5Gi"),
 		},
 	}
-	
+
 	stateset := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -189,7 +202,8 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB) *apps
 			Namespace: m.Namespace,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas: &replicas,
+			Replicas:    &replicas,
+			ServiceName: serviceName,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: ls,
 			},
@@ -203,18 +217,18 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB) *apps
 						Name:    "busybox",
 						Command: []string{"sleep", "3600"},
 						// add
-        				VolumeMounts: []corev1.VolumeMount{{
-        					Name: pvname, 
-        					MountPath: "/opt/data", 
-        					ReadOnly: false,
-					    }},
+						VolumeMounts: []corev1.VolumeMount{{
+							Name:      pvname,
+							MountPath: "/opt/data",
+							ReadOnly:  false,
+						}},
 					}},
 				},
 			},
 			// add
-    		VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				newPersistentVolumeClaim(m, rc, pvname, storageclass),
-		    },
+			},
 		},
 	}
 	// Set MongoDB instance as the owner and controller
@@ -248,6 +262,37 @@ func newPersistentVolumeClaim(m *dbaasv1alpha1.MongoDB, resources corev1.Resourc
 		vc.Spec.StorageClassName = &storageClass
 	}
 	return vc
+}
+
+// newService returns a core/v1 API Service
+func (r *ReconcileMongoDB) newService(m *dbaasv1alpha1.MongoDB, serviceName string) *corev1.Service {
+	var selector = make(map[string]string)
+	selector["role"] = "mongodb"
+
+	service := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: m.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "mongodb",
+					Port:       27017,
+					TargetPort: intstr.FromInt(27107),
+				},
+			},
+			ClusterIP: "None",
+			Selector:  selector,
+		},
+	}
+	// Set MongoDB instance as the owner and controller
+	controllerutil.SetControllerReference(m, service, r.scheme)
+	return service
 }
 
 // labelsForMongoDB returns the labels for selecting the resources
