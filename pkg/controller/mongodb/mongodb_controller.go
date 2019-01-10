@@ -227,7 +227,7 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB, servi
 			},
 			// add
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				newPersistentVolumeClaim(m, rc, pvname, storageclass),
+				r.newPersistentVolumeClaim(m, rc, pvname, storageclass),
 			},
 		},
 	}
@@ -237,7 +237,7 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB, servi
 }
 
 // newPersistentVolumeClaim returns a Persistent Volume Claims for Mongod pod
-func newPersistentVolumeClaim(m *dbaasv1alpha1.MongoDB, resources corev1.ResourceRequirements, pvname, storageClass string) corev1.PersistentVolumeClaim {
+func (r *ReconcileMongoDB) newPersistentVolumeClaim(m *dbaasv1alpha1.MongoDB, resources corev1.ResourceRequirements, pvname, storageClass string) corev1.PersistentVolumeClaim {
 	vc := corev1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolumeClaim",
@@ -261,6 +261,8 @@ func newPersistentVolumeClaim(m *dbaasv1alpha1.MongoDB, resources corev1.Resourc
 	if storageClass != "" {
 		vc.Spec.StorageClassName = &storageClass
 	}
+	// Set MongoDB instance as the owner and controller
+	controllerutil.SetControllerReference(m, &vc, r.scheme)
 	return vc
 }
 
