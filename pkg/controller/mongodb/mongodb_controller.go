@@ -307,6 +307,7 @@ func (r *ReconcileMongoDB) newService(m *dbaasv1alpha1.MongoDB, serviceName stri
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: m.Namespace,
+			Labels:    map[string]string{"name": serviceName},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{

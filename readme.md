@@ -30,7 +30,9 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 
 ## Steps to test the mongodb replicasets
 - Install minikube
-- Start the operator
+- Start the operator  
+`export OPERATOR_NAME=MongoOperatorPoC`  
+`operator-sdk up local --namespace=default`  
 - Create pod reader role and role-bind for mongod sidecar
 `kubectl create -f deploy/poc/pods-reader-role-rolebind.yaml`
 - Create PV firstly.  
@@ -46,6 +48,7 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 `kubectl exec -it mongodb-0 /bin/sh`
 - Connect to mongo replica within the mongo pod
 `mongo mongodb://mongodb-0.mongo:27017,mongodb-1.mongo:27017,mongodb-2.mongo:27017/?replicaSet=rs0`
+
 If you ge t error like below, may be caused by the dns not work well in minikube.  
 ```
 2019-01-11T03:19:27.719+0000 I NETWORK  [thread1]   getaddrinfo("mongodb-2.mongo") failed: Name or service not known. 
@@ -62,6 +65,18 @@ And then compose the mongo url with the IPs and then connect via mongo shell, li
 ## Dependencies:
 This Test depends on the MongoDB sidecar which will maintain the mongo replicasets
 https://github.com/cvallance/mongo-k8s-sidecar You may also replace the sidecar with your own.
+
+The sidecar will watch the pods list and init the replicasets, similar as the mongo shell as below:
+```
+mongo
+rs.initiate();
+var cfg = rs.conf();
+cfg.members[0].host="mongo‑0.mongo:27017";
+rs.reconfig(cfg);
+rs.add("mongo‑1.mongo:27017");
+rs.add("mongo‑2.mongo:27017");
+rs.status();
+```
 
 ## Other mongo k8s operators:
 
