@@ -18,13 +18,13 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 	    `kubectl create -f deploy/crds/dbaas_v1alpha1_mongodb_crd.yaml`
 	2. run inside k8s as deployment (skip)  
 	3. run locally outside kubernetes cluster  
-    `export OPERATOR_NAME=MongoOperatorPoC`
+    `export OPERATOR_NAME=MongoOperatorPoC`  
 	`operator-sdk up local --namespace=default`  
 - create a cr  
     `kubectl apply -f deploy/crds/dbaas_v1alpha1_mongodb_cr.yaml`
-- (todo) add more operations in controller.  
+- (Todo) add more operations in controller.  
     https://github.com/operator-framework/operator-sdk/blob/master/doc/user/client.md	
-- (todo) make operator robust (Operator Lifecycle Manager)  
+- (Todo) make operator robust (Operator Lifecycle Manager)  
     template: https://github.com/operator-framework/getting-started/blob/master/memcachedoperator.0.0.1.csv.yaml
 
 
@@ -33,11 +33,11 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 - Start the operator  
 `export OPERATOR_NAME=MongoOperatorPoC`  
 `operator-sdk up local --namespace=default`  
-- Create pod reader role and role-bind for mongod sidecar
+- Create pod reader role and role-bind for mongod sidecar  
 `kubectl create -f deploy/poc/pods-reader-role-rolebind.yaml`
 - Create PV firstly.  
 `kubectl create -f deploy/poc/host-path-pv.yaml`
-- Deploy MomngoDB cr
+- Deploy MongoDB cr  
 `kubectl create -f deploy/crds/dbaas_v1alpha_mongodb_cr.yaml`
 - Verify the resource created  
 `kubectl get MongoDB`  
@@ -46,7 +46,7 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 `kubectl get po -w`
 - Login to one of the mongo pods  
 `kubectl exec -it mongodb-0 /bin/sh`
-- Connect to mongo replica within the mongo pod
+- Connect to mongo replica within the mongo pod  
 `mongo mongodb://mongodb-0.mongo:27017,mongodb-1.mongo:27017,mongodb-2.mongo:27017/?replicaSet=rs0`
 
 If you ge t error like below, may be caused by the dns not work well in minikube.  
