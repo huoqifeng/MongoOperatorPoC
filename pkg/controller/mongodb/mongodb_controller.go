@@ -107,7 +107,7 @@ func (r *ReconcileMongoDB) Reconcile(request reconcile.Request) (reconcile.Resul
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		// Define headless Service first
-		serviceName := instance.Name + "-rs0"
+		serviceName := "mongo"
 		svc := r.newService(instance, serviceName)
 		reqLogger.Info("Creating a new Service.", "Service.Namespace", svc.Namespace, "Service.Name", svc.Name)
 		err = r.client.Create(context.TODO(), svc)
@@ -185,10 +185,10 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB, servi
 
 	rc := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceStorage: resource.MustParse("0.5Gi"),
+			corev1.ResourceStorage: resource.MustParse("1Gi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceStorage: resource.MustParse("0.5Gi"),
+			corev1.ResourceStorage: resource.MustParse("1Gi"),
 		},
 	}
 
@@ -212,20 +212,48 @@ func (r *ReconcileMongoDB) statefulsetForMongoDB(m *dbaasv1alpha1.MongoDB, servi
 					Labels: ls,
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Image:   "busybox",
-						Name:    "busybox",
-						Command: []string{"sleep", "3600"},
-						// add
-						VolumeMounts: []corev1.VolumeMount{{
-							Name:      pvname,
-							MountPath: "/opt/data",
-							ReadOnly:  false,
-						}},
-					}},
+					Containers: []corev1.Container{
+						{
+							Image: "mongo:3.4",
+							Name:  "mongo",
+							Command: []string{
+								"mongod",
+								"--replSet",
+								"rs0",
+								"--bind_ip",
+								"0.0.0.0",
+								"--smallfiles",
+							},
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 27017,
+							}},
+							VolumeMounts: []corev1.VolumeMount{{
+								Name:      pvname,
+								MountPath: "/data/db",
+								ReadOnly:  false,
+							}},
+						},
+						{
+							Image: "cvallance/mongo-k8s-sidecar",
+							Name:  "mongo-sidecar",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "KUBE_NAMESPACE",
+									Value: "default",
+								},
+								{
+									Name:  "MONGO_SIDECAR_POD_LABELS",
+									Value: "role=mongo,environment=test",
+								},
+								{
+									Name:  "MONGO_SSL_ENABLED",
+									Value: "false",
+								},
+							},
+						},
+					},
 				},
 			},
-			// add
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				r.newPersistentVolumeClaim(m, rc, pvname, storageclass),
 			},
@@ -300,7 +328,7 @@ func (r *ReconcileMongoDB) newService(m *dbaasv1alpha1.MongoDB, serviceName stri
 // labelsForMongoDB returns the labels for selecting the resources
 // belonging to the given mongodb CR name.
 func labelsForMongoDB(name string) map[string]string {
-	return map[string]string{"app": "mongodb", "mongodb_cr": name}
+	return map[string]string{"app": "mongodb", "mongodb_cr": name, "role": "mongo", "environment": "test"}
 }
 
 // getPodNames returns the pod names of the array of pods passed in
