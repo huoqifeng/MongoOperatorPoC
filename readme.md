@@ -57,7 +57,9 @@ If you ge t error like below, may be caused by the dns not work well in minikube
 2019-01-11T03:19:27.724+0000 W NETWORK  [thread1] No primary detected for set rs0
 2019-01-11T03:19:27.724+0000 I NETWORK  [thread1] All nodes for set rs0 are down. This has happened for 3 checks in a row.
 ```
-You can then use the IP to verify, to get the IPs, run 
+Check with command:  
+`minikube addons list`
+If DNS is not enabled and you can not solve it, You can then use the IP to verify, to get the IPs, run  
 `kubectl logs -f mongodb-0 -c mongo-sidecar`  
 And then compose the mongo url with the IPs and then connect via mongo shell, like below:
 `mongo mongodb://172.17.0.6:27017,172.17.0.7:27017,172.17.0.8:27017/?replicaSet=rs0`
