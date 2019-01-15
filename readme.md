@@ -64,6 +64,10 @@ If DNS is not enabled and you can not solve it, You can then use the IP to verif
 And then compose the mongo url with the IPs and then connect via mongo shell, like below:
 `mongo mongodb://172.17.0.6:27017,172.17.0.7:27017,172.17.0.8:27017/?replicaSet=rs0`
 
+You can also access the replicaset on your host machine after add minikube route:  
+`sudo route -n add 172.17.0.0/16 $(minikube ip)`  
+`sudo route -n add 10.0.0.0/24 $(minikube ip)` 
+
 ## Dependencies:
 This Test depends on the MongoDB sidecar which will maintain the mongo replicasets
 https://github.com/cvallance/mongo-k8s-sidecar You may also replace the sidecar with your own.
