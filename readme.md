@@ -29,7 +29,8 @@ This is just a k8s operator sample which uses busybox image, no real implementat
 
 
 ## Steps to test the mongodb replicasets
-- Install minikube
+- Install minikube  
+  https://kubernetes.io/docs/tasks/tools/install-minikube/
 - Start the operator  
 `export OPERATOR_NAME=MongoOperatorPoC`  
 `operator-sdk up local --namespace=default`  
