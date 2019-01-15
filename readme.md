@@ -68,6 +68,10 @@ You can also access the replicaset on your host machine after add minikube route
 `sudo route -n add 172.17.0.0/16 $(minikube ip)`  
 `sudo route -n add 10.0.0.0/24 $(minikube ip)` 
 
+Or, use command  
+`sudo route -n add 172.17.0.0 $(minikube ip)`  
+`sudo route -n add 10.0.0.0 $(minikube ip)` 
+
 ## Dependencies:
 This Test depends on the MongoDB sidecar which will maintain the mongo replicasets
 https://github.com/cvallance/mongo-k8s-sidecar You may also replace the sidecar with your own.
